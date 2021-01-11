@@ -1,176 +1,166 @@
 package com.rnfs;
 
-import java.io.FileOutputStream;
-import java.io.BufferedInputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
-import java.net.HttpURLConnection;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import android.util.Log;
-
-import android.os.AsyncTask;
-
 import com.facebook.react.bridge.ReadableMapKeySetIterator;
 
-public class Downloader extends AsyncTask<DownloadParams, long[], DownloadResult> {
-  private DownloadParams mParam;
-  private AtomicBoolean mAbort = new AtomicBoolean(false);
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Nonnull;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Headers;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.ForwardingSink;
+import okio.Okio;
+import okio.Sink;
+
+public class Downloader {
+
+  private final OkHttpClient client = new OkHttpClient();
   DownloadResult res;
+  private Call request;
 
-  protected DownloadResult doInBackground(DownloadParams... params) {
-    mParam = params[0];
+  void execute(final DownloadParams params) {
     res = new DownloadResult();
+    final Request.Builder request = new Request.Builder();
+    final ReadableMapKeySetIterator headerIterator = params.headers.keySetIterator();
+    while (headerIterator.hasNextKey()) {
+      String headerKey = headerIterator.nextKey();
+      request.addHeader(
+        headerKey,
+        params.headers.getString(params.headers.getString(headerKey)));
+    }
 
-    new Thread(new Runnable() {
-      public void run() {
-        try {
-          download(mParam, res);
-          mParam.onTaskCompleted.onTaskCompleted(res);
-        } catch (Exception ex) {
-          res.exception = ex;
-          mParam.onTaskCompleted.onTaskCompleted(res);
-        }
-      }
-    }).start();
-
-    return res;
-  }
-
-  private void download(DownloadParams param, DownloadResult res) throws Exception {
-    InputStream input = null;
-    OutputStream output = null;
-    HttpURLConnection connection = null;
-
-    try {
-      connection = (HttpURLConnection)param.src.openConnection();
-
-      ReadableMapKeySetIterator iterator = param.headers.keySetIterator();
-
-      while (iterator.hasNextKey()) {
-        String key = iterator.nextKey();
-        String value = param.headers.getString(key);
-        connection.setRequestProperty(key, value);
+    this.request = client.newCall(request.build());
+    this.request.enqueue(new Callback() {
+      @Override
+      public void onFailure(Call call, IOException e) {
+        res.exception = e;
+        params.onTaskCompleted.onTaskCompleted(res);
       }
 
-      connection.setConnectTimeout(param.connectionTimeout);
-      connection.setReadTimeout(param.readTimeout);
-      connection.connect();
+      @Override
+      public void onResponse(Call call, Response response) throws IOException {
+        try (ResponseBody responseBody = response.body()) {
+          if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
 
-      int statusCode = connection.getResponseCode();
-      long lengthOfFile = getContentLength(connection);
-
-      boolean isRedirect = (
-        statusCode != HttpURLConnection.HTTP_OK &&
-        (
-          statusCode == HttpURLConnection.HTTP_MOVED_PERM ||
-          statusCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-          statusCode == 307 ||
-          statusCode == 308
-        )
-      );
-
-      if (isRedirect) {
-        String redirectURL = connection.getHeaderField("Location");
-        connection.disconnect();
-
-        connection = (HttpURLConnection) new URL(redirectURL).openConnection();
-        connection.setConnectTimeout(5000);
-        connection.connect();
-
-        statusCode = connection.getResponseCode();
-        lengthOfFile = getContentLength(connection);
-      }
-      if(statusCode >= 200 && statusCode < 300) {
-        Map<String, List<String>> headers = connection.getHeaderFields();
-
-        Map<String, String> headersFlat = new HashMap<>();
-
-        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
-          String headerKey = entry.getKey();
-          String valueKey = entry.getValue().get(0);
-
-          if (headerKey != null && valueKey != null) {
-            headersFlat.put(headerKey, valueKey);
-          }
-        }
-
-        if (mParam.onDownloadBegin != null) {
-          mParam.onDownloadBegin.onDownloadBegin(statusCode, lengthOfFile, headersFlat);
-        }
-
-        input = new BufferedInputStream(connection.getInputStream(), 8 * 1024);
-        output = new FileOutputStream(param.dest);
-
-        byte data[] = new byte[8 * 1024];
-        long total = 0;
-        int count;
-        double lastProgressValue = 0;
-        long lastProgressEmitTimestamp = 0;
-        boolean hasProgressCallback = mParam.onDownloadProgress != null;
-
-        while ((count = input.read(data)) != -1) {
-          if (mAbort.get()) throw new Exception("Download has been aborted");
-
-          total += count;
-
-          if (hasProgressCallback) {
-            if (param.progressInterval > 0) {
-              long timestamp = System.currentTimeMillis();
-              if (timestamp - lastProgressEmitTimestamp > param.progressInterval) {
-                lastProgressEmitTimestamp = timestamp;
-                publishProgress(new long[]{lengthOfFile, total});
-              }
-            } else if (param.progressDivider <= 0) {
-              publishProgress(new long[]{lengthOfFile, total});
-            } else {
-              double progress = Math.round(((double) total * 100) / lengthOfFile);
-              if (progress % param.progressDivider == 0) {
-                if ((progress != lastProgressValue) || (total == lengthOfFile)) {
-                  Log.d("Downloader", "EMIT: " + String.valueOf(progress) + ", TOTAL:" + String.valueOf(total));
-                  lastProgressValue = progress;
-                  publishProgress(new long[]{lengthOfFile, total});
-                }
+          if (params.onDownloadBegin != null) {
+            Headers responseHeaders = response.headers();
+            Map<String, String> flatHeaders = new HashMap<>(responseHeaders.size());
+            for (Map.Entry<String, List<String>> entry : responseHeaders.toMultimap().entrySet()) {
+              String headerKey = entry.getKey();
+              String headerValue = entry.getValue().get(0);
+              if (headerKey != null && headerValue != null) {
+                flatHeaders.put(entry.getKey(), entry.getValue().get(0));
               }
             }
+            params.onDownloadBegin.onDownloadBegin(response.code(), responseBody.contentLength(), flatHeaders);
           }
 
-          output.write(data, 0, count);
+          try (Sink dest = wrapWithReporter(Okio.sink(params.dest), responseBody.contentLength(), params)) {
+            responseBody.source().readAll(dest);
+            res.bytesWritten = params.dest.length();
+            res.statusCode = response.code();
+            params.onTaskCompleted.onTaskCompleted(res);
+          }
         }
-
-        output.flush();
-        res.bytesWritten = total;
       }
-      res.statusCode = statusCode;
- } finally {
-      if (output != null) output.close();
-      if (input != null) input.close();
-      if (connection != null) connection.disconnect();
-    }
-  }
-
-  private long getContentLength(HttpURLConnection connection){
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-      return connection.getContentLengthLong();
-    }
-    return connection.getContentLength();
+    });
   }
 
   protected void stop() {
-    mAbort.set(true);
-  }
-
-  @Override
-  protected void onProgressUpdate(long[]... values) {
-    super.onProgressUpdate(values);
-    if (mParam.onDownloadProgress != null) {
-      mParam.onDownloadProgress.onDownloadProgress(values[0][0], values[0][1]);
+    if (this.request != null) {
+      this.request.cancel();
     }
   }
 
-  protected void onPostExecute(Exception ex) {
+  private Sink wrapWithReporter(final Sink source, long total, final DownloadParams params) {
+    if (params.onDownloadProgress == null) {
+      return new NoopCountingSink(source);
+    } else if (params.progressInterval < 0) {
+      return new ScheduledCountingSink(source, total, params.progressInterval, params.onDownloadProgress);
+    } else if (params.progressDivider < 0) {
+      return new PercentCountingSink(source, total, params.progressDivider, params.onDownloadProgress);
+    } else {
+      return new NoopCountingSink(source);
+    }
+  }
 
+  private final class NoopCountingSink extends ForwardingSink {
+
+    public NoopCountingSink(Sink delegate) {
+      super(delegate);
+    }
+  }
+
+  private final class PercentCountingSink extends ForwardingSink {
+
+    @Nonnull
+    private final DownloadParams.OnDownloadProgress progressCallback;
+    private long bytesWritten = 0;
+    private final long total;
+    private final float stepSize;
+    private float nextStep;
+
+    public PercentCountingSink(Sink delegate,
+                               long total,
+                               float stepSize,
+                               @Nonnull DownloadParams.OnDownloadProgress progressCallback) {
+      super(delegate);
+      this.total = total;
+      this.stepSize = stepSize;
+      this.nextStep = stepSize;
+      this.progressCallback = progressCallback;
+    }
+
+    @Override
+    public void write(Buffer source, long byteCount) throws IOException {
+      super.write(source, byteCount);
+
+      bytesWritten += byteCount;
+      if (nextStep <= ((float) bytesWritten) / total * 100) {
+        nextStep += Math.min(100f, stepSize);
+        progressCallback.onDownloadProgress(total, bytesWritten);
+      }
+    }
+  }
+
+  private final class ScheduledCountingSink extends ForwardingSink {
+
+    @Nonnull
+    private final DownloadParams.OnDownloadProgress progressCallback;
+    private long bytesWritten = 0;
+    private final long total;
+    private float lastUpdateTime = System.currentTimeMillis();
+    private final float progressInterval;
+
+    public ScheduledCountingSink(Sink delegate,
+                                 long total,
+                                 float progressInterval,
+                                 @Nonnull DownloadParams.OnDownloadProgress progressCallback) {
+      super(delegate);
+      this.total = total;
+      this.progressInterval = progressInterval;
+      this.progressCallback = progressCallback;
+    }
+
+    @Override
+    public void write(Buffer source, long byteCount) throws IOException {
+      super.write(source, byteCount);
+
+      bytesWritten += byteCount;
+      long now = System.currentTimeMillis();
+      if (now - lastUpdateTime > progressInterval) {
+        lastUpdateTime = now;
+        progressCallback.onDownloadProgress(total, bytesWritten);
+      }
+    }
   }
 }
