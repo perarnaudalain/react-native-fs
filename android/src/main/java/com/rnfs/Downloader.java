@@ -29,7 +29,7 @@ public class Downloader {
 
   void execute(final DownloadParams params) {
     res = new DownloadResult();
-    final Request.Builder request = new Request.Builder();
+    final Request.Builder request = new Request.Builder().url(params.src);
     final ReadableMapKeySetIterator headerIterator = params.headers.keySetIterator();
     while (headerIterator.hasNextKey()) {
       String headerKey = headerIterator.nextKey();
