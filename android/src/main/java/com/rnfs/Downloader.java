@@ -84,9 +84,9 @@ public class Downloader {
   private Sink wrapWithReporter(final Sink source, long total, final DownloadParams params) {
     if (params.onDownloadProgress == null) {
       return new NoopCountingSink(source);
-    } else if (params.progressInterval < 0) {
+    } else if (params.progressInterval > 0) {
       return new ScheduledCountingSink(source, total, params.progressInterval, params.onDownloadProgress);
-    } else if (params.progressDivider < 0) {
+    } else if (params.progressDivider > 0) {
       return new PercentCountingSink(source, total, params.progressDivider, params.onDownloadProgress);
     } else {
       return new NoopCountingSink(source);
