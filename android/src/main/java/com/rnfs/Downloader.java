@@ -89,7 +89,7 @@ public class Downloader {
     } else if (params.progressDivider > 0) {
       return new PercentCountingSink(source, total, params.progressDivider, params.onDownloadProgress);
     } else {
-      return new NoopCountingSink(source);
+      return new SimpleCountingSink(source, total, params.onDownloadProgress);
     }
   }
 
@@ -98,6 +98,32 @@ public class Downloader {
     public NoopCountingSink(Sink delegate) {
       super(delegate);
     }
+  }
+
+  private final class SimpleCountingSink extends ForwardingSink {
+    @Nonnull
+    private final DownloadParams.OnDownloadProgress progressCallback;
+    private long bytesWritten = 0;
+    private final long total;
+
+
+    public SimpleCountingSink(Sink delegate,
+                               long total,
+                               @Nonnull DownloadParams.OnDownloadProgress progressCallback) {
+      super(delegate);
+      this.total = total;
+      this.progressCallback = progressCallback;
+    }
+
+
+    @Override
+    public void write(Buffer source, long byteCount) throws IOException {
+      super.write(source, byteCount);
+
+      bytesWritten += byteCount;
+      progressCallback.onDownloadProgress(total, bytesWritten);
+    }
+
   }
 
   private final class PercentCountingSink extends ForwardingSink {
