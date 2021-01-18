@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 
@@ -38,7 +39,12 @@ public class Downloader {
         params.headers.getString(params.headers.getString(headerKey)));
     }
 
-    this.request = client.newCall(request.build());
+    OkHttpClient requestClient = client.newBuilder()
+      .connectTimeout(params.connectionTimeout, TimeUnit.MILLISECONDS)
+      .readTimeout(params.readTimeout, TimeUnit.MILLISECONDS)
+      .build();
+
+    this.request = requestClient.newCall(request.build());
     this.request.enqueue(new Callback() {
       @Override
       public void onFailure(Call call, IOException e) {
