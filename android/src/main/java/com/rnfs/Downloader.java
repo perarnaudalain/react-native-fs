@@ -24,7 +24,11 @@ import okio.Sink;
 
 public class Downloader {
 
-  private final OkHttpClient client = new OkHttpClient();
+  private static final OkHttpClient BASE_CLIENT = new OkHttpClient.Builder()
+    .connectTimeout(5, TimeUnit.SECONDS)
+    .readTimeout(15, TimeUnit.SECONDS)
+    .build();
+
   DownloadResult res;
   private Call request;
 
@@ -39,7 +43,7 @@ public class Downloader {
         params.headers.getString(params.headers.getString(headerKey)));
     }
 
-    OkHttpClient requestClient = client.newBuilder()
+    OkHttpClient requestClient = BASE_CLIENT.newBuilder()
       .connectTimeout(params.connectionTimeout, TimeUnit.MILLISECONDS)
       .readTimeout(params.readTimeout, TimeUnit.MILLISECONDS)
       .build();
