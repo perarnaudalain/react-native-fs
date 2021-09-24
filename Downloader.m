@@ -160,24 +160,25 @@
 {
   if (_task.state == NSURLSessionTaskStateRunning) {
     [_task cancelByProducingResumeData:^(NSData * _Nullable resumeData) {
+      NSLog(@"RNFS.stopDownload");
         if (resumeData != nil) {
+            NSLog(@"RNFS.stopDownload resumeData does not equal nil");
             self.resumeData = resumeData;
             if (self->_params.resumableCallback) {
                 self->_params.resumableCallback();
             }
-        } else {
-            NSError *error = [NSError errorWithDomain:@"RNFS"
-                                                 code:0 //used to pass an NSString @"Aborted" here, but it needs an NSInteger
-                                             userInfo:@{
-                                                        NSLocalizedDescriptionKey: @"Download has been aborted"
-                                                        }];
-
-            self->_params.errorCallback(error);
         }
+        NSError *error = [NSError errorWithDomain:@"RNFS"
+                                  code:0 //used to pass an NSString @"Aborted" here, but it needs an NSInteger
+                                  userInfo:@{
+                                  NSLocalizedDescriptionKey: @"Download has been aborted"
+        }];
+        NSLog(@"RNFS.stopDownload send terminated error");
+        self->_params.errorCallback(error);
     }];
-
   }
 }
+
 
 - (void)resumeDownload
 {

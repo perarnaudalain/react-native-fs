@@ -2,6 +2,11 @@
 
 Native filesystem access for react-native
 
+# branch react-native-fs-fix
+
+- Re-written native android downloader with OkHttp
+- Change ios function stop() for throw error when cancel
+
 ## IMPORTANT
 
 For RN < 0.57 and/or Gradle < 3 you MUST install react-native-fs at version @2.11.17!
@@ -11,11 +16,12 @@ For RN >= 0.57 and/or Gradle >= 3 you MUST install react-native-fs at version >=
 For RN >= 0.61 please install react-native-fs at version >= @2.16.0!
 
 ## Table of Contents
+
 1. [Changelog](#Changelog)
 1. Usage
-    1. [iOS](#usage-ios)
-    1. [Android](#usage-android)
-    1. [Windows](#usage-windows)
+   1. [iOS](#usage-ios)
+   1. [Android](#usage-android)
+   1. [Windows](#usage-windows)
 1. [Examples](#Examples)
 1. [API](#API)
 1. [Background Downloads Tutorial (iOS)](#background-downloads-tutorial-ios)
@@ -50,15 +56,16 @@ At the command line, in your project folder, type:
 
 Done! No need to worry about manually adding the library to your project.
 
-###  Adding with CocoaPods
+### Adding with CocoaPods
 
- Add the RNFS pod to your list of application pods in your Podfile, using the path from the Podfile to the installed module:~~
+Add the RNFS pod to your list of application pods in your Podfile, using the path from the Podfile to the installed module:~~
 
 ```
 pod 'RNFS', :path => '../node_modules/react-native-fs'
 ```
 
 Install pods as usual:
+
 ```
 pod install
 ```
@@ -77,7 +84,7 @@ Android support is currently limited to only the `DocumentDirectory`. This maps 
 
 Make alterations to the following files:
 
-* `android/settings.gradle`
+- `android/settings.gradle`
 
 ```gradle
 ...
@@ -85,7 +92,7 @@ include ':react-native-fs'
 project(':react-native-fs').projectDir = new File(settingsDir, '../node_modules/react-native-fs/android')
 ```
 
-* `android/app/build.gradle`
+- `android/app/build.gradle`
 
 ```gradle
 ...
@@ -95,9 +102,9 @@ dependencies {
 }
 ```
 
-* register module (in MainActivity.java)
+- register module (in MainActivity.java)
 
-  * For react-native below 0.19.0 (use `cat ./node_modules/react-native/package.json | grep version`)
+  - For react-native below 0.19.0 (use `cat ./node_modules/react-native/package.json | grep version`)
 
 ```java
 import com.rnfs.RNFSPackage;  // <--- import
@@ -131,7 +138,8 @@ public class MainActivity extends Activity implements DefaultHardwareBackBtnHand
 }
 ```
 
-  * For react-native 0.19.0 and higher
+- For react-native 0.19.0 and higher
+
 ```java
 import com.rnfs.RNFSPackage; // <------- add package
 
@@ -146,7 +154,8 @@ public class MainActivity extends ReactActivity {
     }
 ```
 
-  * For react-native 0.29.0 and higher ( in MainApplication.java )
+- For react-native 0.29.0 and higher ( in MainApplication.java )
+
 ```java
 import com.rnfs.RNFSPackage; // <------- add package
 
@@ -179,12 +188,12 @@ Follow the instructions in the ['Linking Libraries'](https://github.com/Microsof
 
 ```javascript
 // require the module
-var RNFS = require('react-native-fs');
+var RNFS = require("react-native-fs");
 
 // get a list of files and directories in the main bundle
 RNFS.readDir(RNFS.MainBundlePath) // On Android, use "RNFS.DocumentDirectoryPath" (MainBundlePath is not defined)
   .then((result) => {
-    console.log('GOT RESULT', result);
+    console.log("GOT RESULT", result);
 
     // stat the first file
     return Promise.all([RNFS.stat(result[0].path), result[0].path]);
@@ -192,10 +201,10 @@ RNFS.readDir(RNFS.MainBundlePath) // On Android, use "RNFS.DocumentDirectoryPath
   .then((statResult) => {
     if (statResult[0].isFile()) {
       // if we have a file, read it
-      return RNFS.readFile(statResult[1], 'utf8');
+      return RNFS.readFile(statResult[1], "utf8");
     }
 
-    return 'no file';
+    return "no file";
   })
   .then((contents) => {
     // log the file contents
@@ -210,98 +219,103 @@ RNFS.readDir(RNFS.MainBundlePath) // On Android, use "RNFS.DocumentDirectoryPath
 
 ```javascript
 // require the module
-var RNFS = require('react-native-fs');
+var RNFS = require("react-native-fs");
 
 // create a path you want to write to
 // :warning: on iOS, you cannot write into `RNFS.MainBundlePath`,
 // but `RNFS.DocumentDirectoryPath` exists on both platforms and is writable
-var path = RNFS.DocumentDirectoryPath + '/test.txt';
+var path = RNFS.DocumentDirectoryPath + "/test.txt";
 
 // write the file
-RNFS.writeFile(path, 'Lorem ipsum dolor sit amet', 'utf8')
+RNFS.writeFile(path, "Lorem ipsum dolor sit amet", "utf8")
   .then((success) => {
-    console.log('FILE WRITTEN!');
+    console.log("FILE WRITTEN!");
   })
   .catch((err) => {
     console.log(err.message);
   });
-
 ```
 
 ### File deletion
+
 ```javascript
 // create a path you want to delete
-var path = RNFS.DocumentDirectoryPath + '/test.txt';
+var path = RNFS.DocumentDirectoryPath + "/test.txt";
 
-return RNFS.unlink(path)
-  .then(() => {
-    console.log('FILE DELETED');
-  })
-  // `unlink` will throw an error, if the item to unlink does not exist
-  .catch((err) => {
-    console.log(err.message);
-  });
+return (
+  RNFS.unlink(path)
+    .then(() => {
+      console.log("FILE DELETED");
+    })
+    // `unlink` will throw an error, if the item to unlink does not exist
+    .catch((err) => {
+      console.log(err.message);
+    })
+);
 ```
 
 ### File upload (Android and IOS only)
 
 ```javascript
 // require the module
-var RNFS = require('react-native-fs');
+var RNFS = require("react-native-fs");
 
-var uploadUrl = 'http://requestb.in/XXXXXXX';  // For testing purposes, go to http://requestb.in/ and create your own link
+var uploadUrl = "http://requestb.in/XXXXXXX"; // For testing purposes, go to http://requestb.in/ and create your own link
 // create an array of objects of the files you want to upload
 var files = [
   {
-    name: 'test1',
-    filename: 'test1.w4a',
-    filepath: RNFS.DocumentDirectoryPath + '/test1.w4a',
-    filetype: 'audio/x-m4a'
-  }, {
-    name: 'test2',
-    filename: 'test2.w4a',
-    filepath: RNFS.DocumentDirectoryPath + '/test2.w4a',
-    filetype: 'audio/x-m4a'
-  }
+    name: "test1",
+    filename: "test1.w4a",
+    filepath: RNFS.DocumentDirectoryPath + "/test1.w4a",
+    filetype: "audio/x-m4a",
+  },
+  {
+    name: "test2",
+    filename: "test2.w4a",
+    filepath: RNFS.DocumentDirectoryPath + "/test2.w4a",
+    filetype: "audio/x-m4a",
+  },
 ];
 
 var uploadBegin = (response) => {
   var jobId = response.jobId;
-  console.log('UPLOAD HAS BEGUN! JobId: ' + jobId);
+  console.log("UPLOAD HAS BEGUN! JobId: " + jobId);
 };
 
 var uploadProgress = (response) => {
-  var percentage = Math.floor((response.totalBytesSent/response.totalBytesExpectedToSend) * 100);
-  console.log('UPLOAD IS ' + percentage + '% DONE!');
+  var percentage = Math.floor(
+    (response.totalBytesSent / response.totalBytesExpectedToSend) * 100
+  );
+  console.log("UPLOAD IS " + percentage + "% DONE!");
 };
 
 // upload files
 RNFS.uploadFiles({
   toUrl: uploadUrl,
   files: files,
-  method: 'POST',
+  method: "POST",
   headers: {
-    'Accept': 'application/json',
+    Accept: "application/json",
   },
   fields: {
-    'hello': 'world',
+    hello: "world",
   },
   begin: uploadBegin,
-  progress: uploadProgress
-}).promise.then((response) => {
+  progress: uploadProgress,
+})
+  .promise.then((response) => {
     if (response.statusCode == 200) {
-      console.log('FILES UPLOADED!'); // response.statusCode, response.headers, response.body
+      console.log("FILES UPLOADED!"); // response.statusCode, response.headers, response.body
     } else {
-      console.log('SERVER ERROR');
+      console.log("SERVER ERROR");
     }
   })
   .catch((err) => {
-    if(err.description === "cancelled") {
+    if (err.description === "cancelled") {
       // cancelled by user
     }
     console.log(err);
   });
-
 ```
 
 ## API
@@ -313,7 +327,7 @@ The following constants are available on the `RNFS` export:
 - `MainBundlePath` (`String`) The absolute path to the main bundle directory (not available on Android)
 - `CachesDirectoryPath` (`String`) The absolute path to the caches directory
 - `ExternalCachesDirectoryPath` (`String`) The absolute path to the external caches directory (android only)
-- `DocumentDirectoryPath`  (`String`) The absolute path to the document directory
+- `DocumentDirectoryPath` (`String`) The absolute path to the document directory
 - `DownloadDirectoryPath` (`String`) The absolute path to the download directory (on android only)
 - `TemporaryDirectoryPath` (`String`) The absolute path to the temporary directory (falls back to Caching-Directory on Android)
 - `LibraryDirectoryPath` (`String`) The absolute path to the NSLibraryDirectory (iOS only)
@@ -330,13 +344,13 @@ The returned promise resolves with an array of objects with the following proper
 
 ```js
 type ReadDirItem = {
-  ctime: date;     // The creation date of the file (iOS only)
-  mtime: date;     // The last modified date of the file
-  name: string;     // The name of the item
-  path: string;     // The absolute path to the item
-  size: string;     // Size in bytes
-  isFile: () => boolean;        // Is the file just a file?
-  isDirectory: () => boolean;   // Is the file a directory?
+  ctime: date, // The creation date of the file (iOS only)
+  mtime: date, // The last modified date of the file
+  name: string, // The name of the item
+  path: string, // The absolute path to the item
+  size: string, // Size in bytes
+  isFile: () => boolean, // Is the file just a file?
+  isDirectory: () => boolean, // Is the file a directory?
 };
 ```
 
@@ -349,13 +363,13 @@ The returned promise resolves with an array of objects with the following proper
 
 ```js
 type ReadDirItem = {
-  name: string;     // The name of the item
-  path: string;     // The absolute path to the item
-  size: string;     // Size in bytes.
-  						// Note that the size of files compressed during the creation of the APK (such as JSON files) cannot be determined.
-  						// `size` will be set to -1 in this case.
-  isFile: () => boolean;        // Is the file just a file?
-  isDirectory: () => boolean;   // Is the file a directory?
+  name: string, // The name of the item
+  path: string, // The absolute path to the item
+  size: string, // Size in bytes.
+  // Note that the size of files compressed during the creation of the APK (such as JSON files) cannot be determined.
+  // `size` will be set to -1 in this case.
+  isFile: () => boolean, // Is the file just a file?
+  isDirectory: () => boolean, // Is the file a directory?
 };
 ```
 
@@ -445,7 +459,7 @@ Note: Android only. Will overwrite destPath if it already exists.
 
 ### (iOS only) `copyAssetsFileIOS(imageUri: string, destPath: string, width: number, height: number, scale?: number, compression?: number, resizeMode?: string): Promise<string>`
 
-*Not available on Mac Catalyst.*
+_Not available on Mac Catalyst._
 
 Reads an image file from Camera Roll and writes to `destPath`. This method [assumes the image file to be JPEG file](https://github.com/itinance/react-native-fs/blob/f2f8f4a058cd9acfbcac3b8cf1e08fa1e9b09786/RNFSManager.m#L752-L753). This method will download the original from iCloud if necessary.
 
@@ -500,7 +514,7 @@ The promise will on success return the final destination of the file, as it was 
 
 ### (iOS only) `copyAssetsVideoIOS(videoUri: string, destPath: string): Promise<string>`
 
-*Not available on Mac Catalyst.*
+_Not available on Mac Catalyst._
 
 Copies a video from assets-library, that is prefixed with 'assets-library://asset/asset.MOV?...' to a specific destination.
 
@@ -544,7 +558,7 @@ type MkdirOptions = {
 
 Create a directory at `filepath`. Automatically creates parents and does not throw if already exists (works like Linux `mkdir -p`).
 
-(IOS only): The `NSURLIsExcludedFromBackupKey` property can be provided to set this attribute on iOS platforms. Apple will *reject* apps for storing offline cache data that does not have this attribute.
+(IOS only): The `NSURLIsExcludedFromBackupKey` property can be provided to set this attribute on iOS platforms. Apple will _reject_ apps for storing offline cache data that does not have this attribute.
 
 ### `downloadFile(options: DownloadFileOptions): { jobId: number, promise: Promise<DownloadResult> }`
 
@@ -566,11 +580,12 @@ type DownloadFileOptions = {
   backgroundTimeout?: number // Maximum time (in milliseconds) to download an entire resource (iOS only, useful for timing out background downloads)
 };
 ```
+
 ```js
 type DownloadResult = {
-  jobId: number;          // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
-  statusCode: number;     // The HTTP status code
-  bytesWritten: number;   // The number of bytes written to the file
+  jobId: number, // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
+  statusCode: number, // The HTTP status code
+  bytesWritten: number, // The number of bytes written to the file
 };
 ```
 
@@ -580,10 +595,10 @@ If `options.begin` is provided, it will be invoked once upon download starting w
 
 ```js
 type DownloadBeginCallbackResult = {
-  jobId: number;          // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
-  statusCode: number;     // The HTTP status code
-  contentLength: number;  // The total size in bytes of the download resource
-  headers: Headers;       // The HTTP response headers from the server
+  jobId: number, // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
+  statusCode: number, // The HTTP status code
+  contentLength: number, // The total size in bytes of the download resource
+  headers: Headers, // The HTTP response headers from the server
 };
 ```
 
@@ -591,9 +606,9 @@ If `options.progress` is provided, it will be invoked continuously and passed a 
 
 ```js
 type DownloadProgressCallbackResult = {
-  jobId: number;          // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
-  contentLength: number;  // The total size in bytes of the download resource
-  bytesWritten: number;   // The number of bytes written to the file so far
+  jobId: number, // The download job ID, required if one wishes to cancel the download. See `stopDownload`.
+  contentLength: number, // The total size in bytes of the download resource
+  bytesWritten: number, // The number of bytes written to the file so far
 };
 ```
 
@@ -607,7 +622,7 @@ Use it for performance issues.
 If `progressDivider` = 0, you will receive all `progressCallback` calls, default value is 0.
 
 (IOS only): `options.background` (`Boolean`) - Whether to continue downloads when the app is not focused (default: `false`)
-                           This option is currently only available for iOS, see the [Background Downloads Tutorial (iOS)](#background-downloads-tutorial-ios) section.
+This option is currently only available for iOS, see the [Background Downloads Tutorial (iOS)](#background-downloads-tutorial-ios) section.
 
 (IOS only): If `options.resumable` is provided, it will be invoked when the download has stopped and and can be resumed using `resumeDownload()`.
 
@@ -654,12 +669,13 @@ type UploadFileOptions = {
 };
 
 ```
+
 ```js
 type UploadResult = {
-  jobId: number;        // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
-  statusCode: number;   // The HTTP status code
-  headers: Headers;     // The HTTP response headers from the server
-  body: string;         // The HTTP response body
+  jobId: number, // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
+  statusCode: number, // The HTTP status code
+  headers: Headers, // The HTTP response headers from the server
+  body: string, // The HTTP response body
 };
 ```
 
@@ -667,10 +683,10 @@ Each file should have the following structure:
 
 ```js
 type UploadFileItem = {
-  name: string;       // Name of the file, if not defined then filename is used
-  filename: string;   // Name of file
-  filepath: string;   // Path to file
-  filetype: string;   // The mimetype of the file to be uploaded, if not defined it will get mimetype from `filepath` extension
+  name: string, // Name of the file, if not defined then filename is used
+  filename: string, // Name of file
+  filepath: string, // Path to file
+  filetype: string, // The mimetype of the file to be uploaded, if not defined it will get mimetype from `filepath` extension
 };
 ```
 
@@ -678,7 +694,7 @@ If `options.begin` is provided, it will be invoked once upon upload has begun:
 
 ```js
 type UploadBeginCallbackResult = {
-  jobId: number;        // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
+  jobId: number, // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
 };
 ```
 
@@ -686,9 +702,9 @@ If `options.progress` is provided, it will be invoked continuously and passed a 
 
 ```js
 type UploadProgressCallbackResult = {
-  jobId: number;                      // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
-  totalBytesExpectedToSend: number;   // The total number of bytes that will be sent to the server
-  totalBytesSent: number;             // The number of bytes sent to the server
+  jobId: number, // The upload job ID, required if one wishes to cancel the upload. See `stopUpload`.
+  totalBytesExpectedToSend: number, // The total number of bytes that will be sent to the server
+  totalBytesSent: number, // The number of bytes sent to the server
 };
 ```
 
@@ -704,8 +720,8 @@ Returns an object with the following properties:
 
 ```js
 type FSInfoResult = {
-  totalSpace: number;   // The total amount of storage space on the device (in bytes).
-  freeSpace: number;    // The amount of available storage space on the device (in bytes).
+  totalSpace: number, // The total amount of storage space on the device (in bytes).
+  freeSpace: number, // The amount of available storage space on the device (in bytes).
 };
 ```
 
@@ -719,7 +735,7 @@ Returns an array with the absolute paths to application-specific directories on 
 
 ### (iOS only) `pathForGroup(groupIdentifier: string): Promise<string>`
 
-`groupIdentifier` (`string`) Any value from the *com.apple.security.application-groups* entitlements list.
+`groupIdentifier` (`string`) Any value from the _com.apple.security.application-groups_ entitlements list.
 
 Returns the absolute path to the directory shared for all applications with the same security group identifier.
 This directory can be used to to share files between application of the same developer.
@@ -755,7 +771,6 @@ The JavaScript will continue to work as usual when the download is done but now 
 **BE AWARE!** iOS will give about 30 sec. to run your code after `handleEventsForBackgroundURLSession` is called and until `completionHandler`
 is triggered so don't do anything that might take a long time (like unzipping), you will be able to do it after the user re-launces the app,
 otherwide iOS will terminate your app.
-
 
 ## Test / Demo app
 
