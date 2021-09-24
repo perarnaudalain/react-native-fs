@@ -37,7 +37,6 @@ public class Downloader {
     final Request.Builder request = new Request.Builder().url(params.src);
     final ReadableMapKeySetIterator headerIterator = params.headers.keySetIterator();
     while (headerIterator.hasNextKey()) {
-      if (request.isCanceled()) throw new Exception("Download has been aborted");
       String headerKey = headerIterator.nextKey();
       request.addHeader(
         headerKey,
@@ -82,6 +81,10 @@ public class Downloader {
             params.onTaskCompleted.onTaskCompleted(res);
           }
         }
+      }
+      catch (IOException e){
+        res.exception=e;
+        params.onTaskCompleted.onTaskCompleted(res);
       }
     });
   }
