@@ -81,11 +81,11 @@ public class Downloader {
             params.onTaskCompleted.onTaskCompleted(res);
           }
         }
-      }
-      catch (IOException e){
-        res.exception=e;
-        params.onTaskCompleted.onTaskCompleted(res);
-      }
+        catch (IOException e){
+          res.exception=e;
+          params.onTaskCompleted.onTaskCompleted(res);
+        }
+      }     
     });
   }
 
